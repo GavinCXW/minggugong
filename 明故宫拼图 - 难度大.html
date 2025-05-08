@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>4x4拼图游戏</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: '微软雅黑', sans-serif;
+        }
+
+        body {
+            /* 修改背景为深色渐变 */
+            background: linear-gradient(135deg, #3730a3, #7e22ce, #1f2937);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        /* 新增标题样式 */
+        .game-title {
+            font-size: clamp(24px, 4vw, 36px); /* 响应式字体大小 */
+            margin-bottom: 25px;
+            background: linear-gradient(90deg, #a5b4fc 20%, #fbcfe8 50%, #c7d2fe 80%);
+            -webkit-background-clip: text;
+            background-clip: text;
+            color: transparent;
+            font-weight: bold;
+            text-align: center;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.05);
+        }
+
+        #game-container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        #control-panel {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            padding: 15px;
+            background-color: #fff;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .status-item {
+            color: #666;
+            font-size: 14px;
+        }
+
+        button {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            background-color: #4a90e2;
+            color: white;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+
+        button:hover:not(:disabled) {
+            background-color: #357abd;
+            transform: translateY(-1px);
+        }
+
+        button:active:not(:disabled) {
+            transform: translateY(0);
+        }
+
+        #puzzle-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            background-color: #fff;
+            padding: 8px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+
+        /* 优化拼图块样式 */
+        .puzzle-piece {
+            aspect-ratio: 1/1;
+            background-size: 400% 400%;
+            border-radius: 12px; /* 圆角设计 */
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1), 
+                       inset 0 0 4px rgba(255,255,255,0.3); /* 内光泽效果 */
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .puzzle-piece:hover {
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2),
+                       inset 0 0 8px rgba(255,255,255,0.5); /* 悬停增强光泽 */
+        }
+
+        .puzzle-piece.movable {
+            border-color: #4a90e2;
+            box-shadow: 0 4px 8px rgba(74,144,226,0.3),
+                       inset 0 0 4px rgba(74,144,226,0.1); /* 可移动状态光泽 */
+        }
+
+        .empty {
+            background-color: #f8f8f8;
+            background-image: none !important;
+        }
+
+        #result-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+            justify-content: center;
+            align-items: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            padding: 30px;
+            border-radius: 8px;
+            text-align: center;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+        }
+
+        #result-title {
+            color: #4a90e2;
+            margin-bottom: 20px;
+        }
+
+        .modal-content p {
+            color: #666;
+            margin-bottom: 10px;
+            font-size: 18px;
+        }
+
+        #restart-btn {
+            margin-top: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+
+        @media (max-width: 600px) {
+            #puzzle-board {
+                gap: 4px;
+                padding: 4px;
+            }
+            
+            .puzzle-piece {
+                border-radius: 8px; /* 小屏幕调整圆角 */
+                border-width: 0.5px;
+            }
+
+            #control-panel {
+                padding: 10px;
+                gap: 10px;
+            }
+
+            .status-item {
+                font-size: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="game-title">拼图游戏</h1>
+    <div id="game-container">
+        <div id="control-panel">
+            <div class="status-item">时间：<span id="time">00:00</span></div>
+            <div class="status-item">移动次数：<span id="moves">0</span></div>
+            <button id="hint-btn">提示</button>
+            <button id="reset-btn">重置</button>
+        </div>
+        <div id="puzzle-board" class="grid"></div>
+        <div id="result-modal" class="modal">
+            <div class="modal-content">
+                <h2 id="result-title"></h2>
+                <p>耗时：<span id="final-time"></span></p>
+                <p>移动次数：<span id="final-moves"></span></p>
+                <button id="restart-btn">重新开始</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // 以下为与上一版本相同的游戏逻辑代码（保持核心功能不变）
+        const IMAGE_URL = 'https://img.picgo.net/2025/05/09/P-99db9cbb0de48ff5.md.png';
+        const SIZE = 4;
+        let pieces = [];
+        let emptyIndex = SIZE * SIZE - 1;
+        let timer = null;
+        let time = 0;
+        let moves = 0;
+        let isGameActive = false;
+        let hintCooldown = 30;
+        let isHintAvailable = true;
+
+        function initGame() {
+            pieces = Array.from({ length: SIZE * SIZE }, (_, i) => i === emptyIndex ? null : i);
+            shufflePieces();
+            renderBoard();
+            resetGameState();
+            setupEventListeners();
+        }
+
+        function shufflePieces() {
+            for (let i = pieces.length - 1; i > 0; i--) {
+                const j = Math.floor(Math.random() * (i + 1));
+                if (pieces[i] !== null && pieces[j] !== null) {
+                    [pieces[i], pieces[j]] = [pieces[j], pieces[i]];
+                }
+            }
+            if (!checkMovable()) shufflePieces();
+        }
+
+        function checkMovable() {
+            const neighbors = getNeighbors(emptyIndex);
+            return neighbors.length > 0;
+        }
+
+        function renderBoard() {
+            const board = document.getElementById('puzzle-board');
+            board.innerHTML = '';
+            pieces.forEach((piece, index) => {
+                const pieceElement = document.createElement('div');
+                pieceElement.className = 'puzzle-piece' + (piece === null ? ' empty' : '');
+                if (piece !== null) {
+                    const row = Math.floor(piece / SIZE);
+                    const col = piece % SIZE;
+                    pieceElement.style.backgroundImage = `url(${IMAGE_URL})`;
+                    pieceElement.style.backgroundPosition = `${-col * 100}% ${-row * 100}%`;
+                }
+                pieceElement.dataset.index = index;
+                // 添加鼠标点击事件监听器
+                pieceElement.addEventListener('click', () => handleMove(index));
+                board.appendChild(pieceElement);
+            });
+        }
+
+        function getNeighbors(index) {
+            const row = Math.floor(index / SIZE);
+            const col = index % SIZE;
+            const neighbors = [];
+            if (row > 0) neighbors.push(index - SIZE);
+            if (row < SIZE - 1) neighbors.push(index + SIZE);
+            if (col > 0) neighbors.push(index - 1);
+            if (col < SIZE - 1) neighbors.push(index + 1);
+            return neighbors.filter(i => pieces[i] !== null);
+        }
+
+        function handleMove(targetIndex) {
+            if (!isGameActive) return;
+            const neighbors = getNeighbors(emptyIndex);
+            if (!neighbors.includes(targetIndex)) return;
+
+            [pieces[emptyIndex], pieces[targetIndex]] = [pieces[targetIndex], pieces[emptyIndex]];
+            emptyIndex = targetIndex;
+            moves++;
+            document.getElementById('moves').textContent = moves.toString().padStart(2, '0');
+
+            if (moves === 1) {
+                timer = setInterval(updateTime, 1000);
+            }
+
+            renderBoard();
+            checkWin();
+        }
+
+        function checkWin() {
+            const isWin = pieces.every((piece, index) => {
+                return piece === (index === emptyIndex ? null : index);
+            });
+
+            if (isWin) {
+                clearInterval(timer);
+                isGameActive = false;
+                showResultModal(true);
+                document.querySelectorAll('.puzzle-piece').forEach(piece => {
+                    piece.style.transition = 'transform 0.5s';
+                    piece.style.transform = 'scale(1.05)';
+                    setTimeout(() => piece.style.transform = 'scale(1)', 300);
+                });
+            }
+        }
+
+        function updateTime() {
+            time++;
+            const minutes = Math.floor(time / 60).toString().padStart(2, '0');
+            const seconds = (time % 60).toString().padStart(2, '0');
+            document.getElementById('time').textContent = `${minutes}:${seconds}`;
+        }
+
+        function showResultModal(isSuccess) {
+            const modal = document.getElementById('result-modal');
+            const title = document.getElementById('result-title');
+            const finalTime = document.getElementById('final-time');
+            const finalMoves = document.getElementById('final-moves');
+
+            finalTime.textContent = `${Math.floor(time / 60).toString().padStart(2, '0')}:${(time % 60).toString().padStart(2, '0')}`;
+            finalMoves.textContent = moves;
+            title.textContent = isSuccess ? '拼图成功！' : '游戏结束';
+            modal.style.display = 'flex';
+        }
+
+        function showHint() {
+            if (!isHintAvailable || !isGameActive) return;
+            
+            const correctPositions = pieces.map((p, i) => p === i ? 0 : Math.abs(p - i));
+            const bestMove = getNeighbors(emptyIndex).reduce((a, b) => 
+                correctPositions[a] < correctPositions[b] ? a : b
+            );
+
+            const hintPiece = document.querySelector(`[data-index="${bestMove}"]`);
+            hintPiece.style.borderColor = 'red';
+            hintPiece.style.boxShadow = '0 0 0 2px red';
+            setTimeout(() => {
+                hintPiece.style.borderColor = '#e0e0e0';
+                hintPiece.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
+            }, 2000);
+
+            isHintAvailable = false;
+            const hintBtn = document.getElementById('hint-btn');
+            hintBtn.disabled = true;
+            let countdown = hintCooldown;
+            const updateCooldown = () => {
+                hintBtn.textContent = `提示（${countdown}s）`;
+                if (countdown <= 0) {
+                    clearInterval(cooldownTimer);
+                    hintBtn.textContent = '提示';
+                    hintBtn.disabled = false;
+                    isHintAvailable = true;
+                }
+                countdown--;
+            };
+            const cooldownTimer = setInterval(updateCooldown, 1000);
+        }
+
+        function resetGameState() {
+            clearInterval(timer);
+            timer = null;
+            time = 0;
+            moves = 0;
+            isGameActive = true;
+            document.getElementById('time').textContent = '00:00';
+            document.getElementById('moves').textContent = '00';
+            document.getElementById('result-modal').style.display = 'none';
+        }
+
+        function setupEventListeners() {
+            document.addEventListener('keydown', (e) => {
+                if (!isGameActive) return;
+                const row = Math.floor(emptyIndex / SIZE);
+                const col = emptyIndex % SIZE;
+                let targetIndex;
+
+                switch (e.key) {
+                    case 'ArrowUp':
+                        targetIndex = emptyIndex + SIZE;
+                        break;
+                    case 'ArrowDown':
+                        targetIndex = emptyIndex - SIZE;
+                        break;
+                    case 'ArrowLeft':
+                        targetIndex = emptyIndex + 1;
+                        break;
+                    case 'ArrowRight':
+                        targetIndex = emptyIndex - 1;
+                        break;
+                    default:
+                        return;
+                }
+
+                if (targetIndex >= 0 && targetIndex < SIZE * SIZE) {
+                    handleMove(targetIndex);
+                }
+            });
+
+            document.getElementById('hint-btn').addEventListener('click', showHint);
+            document.getElementById('reset-btn').addEventListener('click', () => {
+                emptyIndex = SIZE * SIZE - 1;
+                shufflePieces();
+                renderBoard();
+                resetGameState();
+            });
+            document.getElementById('restart-btn').addEventListener('click', () => {
+                emptyIndex = SIZE * SIZE - 1;
+                shufflePieces();
+                renderBoard();
+                resetGameState();
+                document.getElementById('result-modal').style.display = 'none';
+            });
+        }
+
+        window.onload = initGame;
+    </script>
+</body>
+</html>
